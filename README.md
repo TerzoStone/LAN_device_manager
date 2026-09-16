@@ -10,6 +10,7 @@
 - `data/lan_devices.csv`：设备数据文件，实际保存的“数据库”。
 - `python/lan_device_manager.py`：Python 命令行管理程序。
 - `java/src/LanDeviceViewer.java`：Java 可视化界面程序。
+- `run_menu.bat`、`run_menu.ps1`：Windows 下用于双击启动交互式菜单的脚本。
 - `README.md`：项目说明。
 
 ## 2. Python 部分：设备管理系统
@@ -23,7 +24,7 @@
 - 显示所有设备信息
 - 数据保存到 CSV 文件，默认路径为 `data/lan_devices.csv`
 
-### 2.2 运行方式
+### 2.2 命令行运行方式（子命令模式）
 
 在项目根目录执行：
 
@@ -41,7 +42,38 @@ python python/lan_device_manager.py query --keyword "交换机"
 python python/lan_device_manager.py delete --id D009
 ```
 
-### 2.3 数据结构
+### 2.3 Windows：双击启动（交互式菜单）
+
+为方便课程演示或不熟悉命令行的用户，仓库提供两个 Windows 启动脚本，支持双击运行进入交互式菜单：
+
+- `run_menu.bat` —— 在 Windows CMD 中运行，自动将控制台切换为 UTF-8（chcp 65001），运行后会在命令行中显示菜单，脚本最后会 `pause`，便于查看输出。
+- `run_menu.ps1` —— PowerShell 启动脚本，将 PowerShell 控制台输出编码设置为 UTF-8 并调用 Python 脚本；脚本结束后会等待回车。
+
+使用方法：
+
+1. 确保系统安装了 Python 并且 `python` 可执行程序在 PATH 中（在命令行运行 `python --version` 验证）。
+   - 如果系统使用 `python3` 作为可执行名，请编辑 `run_menu.bat` / `run_menu.ps1` 将 `python` 替换为 `python3` 或指定你系统中的 Python 路径。
+2. 在资源管理器中双击 `run_menu.bat`（或右键 -> 用 PowerShell 运行 `run_menu.ps1`）。
+3. 出现菜单后按提示输入编号进行操作；选择 `0` 将退出程序。
+
+注意事项：
+
+- PowerShell 执行策略可能阻止脚本运行，如遇到提示可在管理员或当前用户作用域执行：
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+或用临时策略运行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run_menu.ps1
+```
+
+- 脚本假设仓库结构保持不变（`python\lan_device_manager.py`）。如移动文件，请相应修改脚本中的路径。
+- 若希望脚本自动激活虚拟环境（venv）或使用指定 Python 解释器路径，可将路径写入脚本或告知我由我代为修改。
+
+### 2.4 数据结构
 
 每条设备记录包含：
 
