@@ -35,10 +35,23 @@ class DeviceManager:
         self.records = self.load_records()
 
     def load_records(self):
-        with self.file_path.open("r", encoding="utf-8", newline="") as csvfile:
-            reader = csv.DictReader(csvfile)
-            rows = list(reader)
-        return rows
+        try:
+            with self.file_path.open("r", encoding="utf-8", newline="") as csvfile:
+                reader = csv.DictReader(csvfile)
+                rows = []
+                for row in reader:
+                    if row is None:
+                        continue
+                    clean = {field: (row.get(field, "") or "").strip() for field in FIELDNAMES}
+                    if not any(clean.values()):
+                        continue
+                    rows.append(clean)
+            return rows
+        except FileNotFoundError:
+            self._write_csv([])
+            return []
+        except csv.Error as exc:
+            raise ValueError(f"CSV 数据格式错误: {exc}") from exc
 
     def save_records(self):
         self._write_csv(self.records)
@@ -83,14 +96,20 @@ class DeviceManager:
         raise ValueError(f"未找到设备编号: {device_id}")
 
     def query_records(self, keyword=None, field=None):
+        if keyword is None:
+            raise ValueError("查询关键字不能为空")
+        keyword = str(keyword).strip()
+        if not keyword:
+            raise ValueError("查询关键字不能为空")
+
         results = self.records
-        if field and keyword is not None:
-            keyword = str(keyword).strip()
+        if field is not None:
+            if field not in FIELDNAMES:
+                raise ValueError(f"字段名错误，允许字段为: {', '.join(FIELDNAMES)}")
             results = [
                 item for item in results if keyword.lower() in str(item.get(field, "")).lower()
             ]
-        elif keyword is not None:
-            keyword = str(keyword).strip()
+        else:
             results = [
                 item
                 for item in results
@@ -183,7 +202,7 @@ def build_parser():
 
     query_parser = subparsers.add_parser("query", help="按关键字查询设备")
     query_parser.add_argument("--keyword", required=True)
-    query_parser.add_argument("--field", default=None)
+    query_parser.add_argument("--field", choices=FIELDNAMES, default=None)
     query_parser.set_defaults(func=lambda args, manager: manager.print_table(manager.query_records(args.keyword, args.field)))
 
     return parser
