@@ -4,7 +4,7 @@
 本模块实现了一个简化版的文件型数据库管理系统：
 - 使用 CSV 文件保存设备记录
 - 提供设备的增删改查功能
-- 通过命令行参数完成操作
+- 既支持命令行子命令，也支持交互式菜单模式
 - 适合作为课程设计中“数据库记录管理”的核心代码
 """
 
@@ -241,21 +241,162 @@ def build_parser():
     return parser
 
 
+def main_menu() -> int:
+    """显示主菜单并返回用户选择的整数值。
+
+    返回值约定：
+    0 - 退出程序（调用 exit()）
+    1 - 列表全部设备
+    2 - 添加设备
+    3 - 删除设备
+    4 - 修改设备
+    5 - 查询设备
+    6 - 使用命令行子命令（显示帮助并返回）
+    """
+    print("\n局域网设备管理系统 - 主菜单")
+    print("0. 退出")
+    print("1. 列出全部设备")
+    print("2. 添加设备")
+    print("3. 删除设备")
+    print("4. 修改设备")
+    print("5. 查询设备")
+    print("6. 显示命令行帮助（保留子命令模式）")
+    try:
+        choice_str = input("请选择操作编号: ").strip()
+        if choice_str == "":
+            return -1
+        choice = int(choice_str)
+        return choice
+    except (ValueError, EOFError):
+        return -1
+
+
+def prompt_device_fields(require_all=True):
+    """交互式提示用户输入设备字段，返回一个字典。
+
+    如果 require_all=True，则要求必填字段非空；否则允许为空以便用于 update。
+    """
+    fields = {}
+    def ask(name, prompt_text):
+        try:
+            val = input(prompt_text).strip()
+        except EOFError:
+            val = ""
+        if require_all and not val:
+            raise ValueError(f"{name} 不能为空")
+        return val
+
+    if require_all:
+        fields["device_id"] = ask("device_id", "设备编号 (必填): ")
+        fields["name"] = ask("name", "设备名称 (必填): ")
+        fields["device_type"] = ask("device_type", "设备类型 (必填): ")
+        fields["ip"] = ask("ip", "IP 地址 (必填): ")
+        fields["mac"] = ask("mac", "MAC 地址 (必填): ")
+        fields["location"] = ask("location", "位置 (必填): ")
+        fields["status"] = ask("status", "状态 (例如: 在线/离线/维护中) (必填): ")
+        fields["owner"] = ask("owner", "负责人 (必填): ")
+        fields["purchase_date"] = ask("purchase_date", "采购日期 (YYYY-MM-DD) (必填): ")
+    else:
+        # 可选项，用于 update：空字符串表示不修改
+        for name in FIELDNAMES:
+            try:
+                val = input(f"{name} (留空表示不修改): ").strip()
+            except EOFError:
+                val = ""
+            if val:
+                fields[name] = val
+    return fields
+
+
+def handle_menu_choice(choice: int, manager: DeviceManager):
+    """根据菜单返回值分发执行具体功能（开关语句分支）。"""
+    if choice == 1:
+        manager.print_table(manager.records)
+    elif choice == 2:
+        try:
+            device = prompt_device_fields(require_all=True)
+            added = manager.add_device(device)
+            print("已添加设备:", added)
+        except ValueError as exc:
+            print(f"添加失败: {exc}")
+    elif choice == 3:
+        try:
+            did = input("请输入要删除的设备编号: ").strip()
+            if not did:
+                print("设备编号不能为空")
+                return
+            manager.delete_device(did)
+            print(f"设备 {did} 已删除")
+        except ValueError as exc:
+            print(f"删除失败: {exc}")
+    elif choice == 4:
+        try:
+            did = input("请输入要修改的设备编号: ").strip()
+            if not did:
+                print("设备编号不能为空")
+                return
+            updates = prompt_device_fields(require_all=False)
+            if not updates:
+                print("未提供任何更新字段")
+                return
+            updated = manager.update_device(did, updates)
+            print("已更新设备:", updated)
+        except ValueError as exc:
+            print(f"更新失败: {exc}")
+    elif choice == 5:
+        try:
+            kw = input("请输入查询关键字: ").strip()
+            if not kw:
+                print("查询关键字不能为空")
+                return
+            field = input(f"可选字段 ({', '.join(FIELDNAMES)})，留空为全文搜索: ").strip() or None
+            if field is not None and field not in FIELDNAMES:
+                print("字段名无效，执行全文搜索")
+                field = None
+            results = manager.query_records(kw, field)
+            manager.print_table(results)
+        except ValueError as exc:
+            print(f"查询失败: {exc}")
+    elif choice == 6:
+        # 显示 argparse 的帮助并返回到菜单循环
+        parser = build_parser()
+        parser.print_help()
+    else:
+        print("无效选择，请重试")
+
+
 def main():
-    # 程序入口：解析命令并执行对应逻辑
+    """主入口：支持两种运行模式：
+    - 命令行子命令模式（保留原有 argparse 行为）
+    - 交互式菜单模式（无命令行子命令时启动）
+
+    交互式模式通过主菜单函数返回值驱动循环，若主菜单返回 0 则调用 exit() 退出，避免死循环。
+    """
     parser = build_parser()
     args = parser.parse_args()
-    if not hasattr(args, "func"):
-        parser.print_help()
-        return 0
 
     manager = DeviceManager(DATA_FILE)
-    try:
-        args.func(args, manager)
-        return 0
-    except ValueError as exc:
-        print(f"错误: {exc}", file=sys.stderr)
-        return 1
+
+    # 如果命令行指定了子命令（func），则沿用非交互式行为（便于脚本调用）
+    if hasattr(args, "func") and args.command is not None:
+        try:
+            args.func(args, manager)
+            return 0
+        except ValueError as exc:
+            print(f"错误: {exc}", file=sys.stderr)
+            return 1
+
+    # 进入交互式菜单循环，由主菜单返回值控制开关语句
+    while True:
+        choice = main_menu()
+        # 要求：当主菜单返回特定值（此处 0）时调用 exit() 结束程序，避免死循环
+        if choice == 0:
+            print("退出程序，感谢使用。")
+            exit(0)
+        try:
+            handle_menu_choice(choice, manager)
+        except Exception as exc:
+            print(f"执行出错: {exc}")
 
 
 if __name__ == "__main__":
