@@ -9,7 +9,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+// Java 图形界面主类：读取 CSV 文件中的设备数据，并用手工绘图方式展示原始表格和统计图
 public class LanDeviceViewer extends JFrame {
+    // 保存从 CSV 中解析出的设备数据记录
     private final List<DeviceRecord> records;
 
     public LanDeviceViewer() {
@@ -18,11 +20,13 @@ public class LanDeviceViewer extends JFrame {
         setSize(1200, 900);
         setLocationRelativeTo(null);
 
+        // 读取数据文件，路径与 Python 端保持一致
         File dataFile = new File("data/lan_devices.csv");
         records = readRecords(dataFile);
         setContentPane(new DevicePanel(records));
     }
 
+    // 读取 CSV 文件并将每一行转换为 DeviceRecord 对象
     private static List<DeviceRecord> readRecords(File dataFile) {
         List<DeviceRecord> list = new ArrayList<>();
         if (!dataFile.exists()) {
@@ -62,6 +66,7 @@ public class LanDeviceViewer extends JFrame {
         return list;
     }
 
+    // 解析一行 CSV 数据，兼容字段中包含逗号或双引号的情况
     private static List<String> parseCsvLine(String line) {
         List<String> result = new ArrayList<>();
         StringBuilder current = new StringBuilder();
@@ -87,6 +92,7 @@ public class LanDeviceViewer extends JFrame {
         return result;
     }
 
+    // 单条设备数据对象，字段与 CSV 表头一一对应
     private static class DeviceRecord {
         String deviceId;
         String name;
@@ -99,6 +105,7 @@ public class LanDeviceViewer extends JFrame {
         String purchaseDate;
     }
 
+    // 自定义绘图面板：利用 Graphics2D 直接绘制表格和统计图
     private static class DevicePanel extends JPanel {
         private final List<DeviceRecord> records;
         private final Color[] palette = {new Color(72, 128, 255), new Color(94, 196, 110), new Color(255, 174, 66), new Color(255, 110, 110), new Color(157, 122, 255)};
@@ -114,12 +121,14 @@ public class LanDeviceViewer extends JFrame {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+            // 按顺序绘制：表格、状态柱状图、类型饼图
             drawTable(g2, 40, 40, 1120, 260);
             drawStatusChart(g2, 80, 360, 400, 220);
             drawTypeChart(g2, 620, 360, 400, 220);
             g2.dispose();
         }
 
+        // 使用 drawRect/drawString 直接手工绘制表格，避免使用 JTable 等组件
         private void drawTable(Graphics2D g2, int x, int y, int width, int height) {
             g2.setColor(Color.BLACK);
             g2.setFont(new Font("Microsoft YaHei", Font.BOLD, 16));
@@ -156,6 +165,7 @@ public class LanDeviceViewer extends JFrame {
             }
         }
 
+        // 统计并绘制设备状态分布柱状图，例如在线、离线、维护中数量
         private void drawStatusChart(Graphics2D g2, int x, int y, int width, int height) {
             Map<String, Integer> counts = new LinkedHashMap<>();
             counts.put("在线", 0);
@@ -194,6 +204,7 @@ public class LanDeviceViewer extends JFrame {
             }
         }
 
+        // 统计并绘制设备类型分布饼图，展示不同设备类型的占比
         private void drawTypeChart(Graphics2D g2, int x, int y, int width, int height) {
             Map<String, Integer> counts = new LinkedHashMap<>();
             for (DeviceRecord record : records) {
@@ -233,6 +244,7 @@ public class LanDeviceViewer extends JFrame {
             }
         }
 
+        // 截断过长字符串，保证表格单元格整齐排列
         private String truncate(String text, int maxLength) {
             if (text == null) {
                 return "";
@@ -245,6 +257,7 @@ public class LanDeviceViewer extends JFrame {
     }
 
     public static void main(String[] args) {
+        // 通过 SwingUtilities.invokeLater 保证 UI 在事件分发线程中创建和显示
         SwingUtilities.invokeLater(() -> {
             LanDeviceViewer viewer = new LanDeviceViewer();
             viewer.setVisible(true);

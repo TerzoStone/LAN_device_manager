@@ -1,16 +1,36 @@
 #!/usr/bin/env python3
-"""局域网设备管理系统（Python 命令行版）"""
+"""局域网设备管理系统（Python 命令行版）
+
+本模块实现了一个简化版的文件型数据库管理系统：
+- 使用 CSV 文件保存设备记录
+- 提供设备的增删改查功能
+- 通过命令行参数完成操作
+- 适合作为课程设计中“数据库记录管理”的核心代码
+"""
 
 import argparse
 import csv
 import sys
 from pathlib import Path
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8")
 
+# 处理 Windows 控制台中文显示问题：尽量将标准输入输出设置为 UTF-8
+# 仅在运行环境支持 reconfigure() 时才执行，避免兼容性问题
+def set_utf8_stdio():
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        if stream is None:
+            continue
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8")
+            except TypeError:
+                pass
+
+
+set_utf8_stdio()
+
+# 设备记录的字段名定义，统一方便后续增删改查和 CSV 文件读写
 FIELDNAMES = [
     "device_id",
     "name",
@@ -23,11 +43,15 @@ FIELDNAMES = [
     "purchase_date",
 ]
 
+# 数据文件的实际保存位置：项目根目录下的 data/lan_devices.csv
 DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "lan_devices.csv"
 
 
 class DeviceManager:
+    """管理设备记录的核心类，负责文件读写和 CRUD 操作。"""
+
     def __init__(self, file_path: Path):
+        # 初始化时确保目录存在，并创建空文件（如果尚未存在）
         self.file_path = file_path
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         if not self.file_path.exists():
@@ -35,6 +59,7 @@ class DeviceManager:
         self.records = self.load_records()
 
     def load_records(self):
+        # 从 CSV 文件中读取全部设备记录，返回列表形式
         try:
             with self.file_path.open("r", encoding="utf-8", newline="") as csvfile:
                 reader = csv.DictReader(csvfile)
@@ -54,15 +79,18 @@ class DeviceManager:
             raise ValueError(f"CSV 数据格式错误: {exc}") from exc
 
     def save_records(self):
+        # 将内存中的设备列表保存回 CSV 文件
         self._write_csv(self.records)
 
     def _write_csv(self, rows):
+        # 统一写出 CSV 文件头和各条记录
         with self.file_path.open("w", encoding="utf-8", newline="") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=FIELDNAMES)
             writer.writeheader()
             writer.writerows(rows)
 
     def add_device(self, device):
+        # 添加设备：校验编号唯一性和必要字段
         device_id = device.get("device_id", "").strip()
         if not device_id:
             raise ValueError("设备编号不能为空")
@@ -77,6 +105,7 @@ class DeviceManager:
         return clean
 
     def delete_device(self, device_id):
+        # 删除设备记录：按 device_id 过滤并重写 CSV 文件
         before = len(self.records)
         self.records = [item for item in self.records if item.get("device_id") != device_id]
         if len(self.records) == before:
@@ -84,6 +113,7 @@ class DeviceManager:
         self.save_records()
 
     def update_device(self, device_id, update_map):
+        # 修改设备信息：仅允许更新已定义字段，防止非法字段写入
         for item in self.records:
             if item.get("device_id") == device_id:
                 for key, value in update_map.items():
@@ -96,6 +126,7 @@ class DeviceManager:
         raise ValueError(f"未找到设备编号: {device_id}")
 
     def query_records(self, keyword=None, field=None):
+        # 按关键字查询设备：keyword 可在全部字段中查找，也可指定字段
         if keyword is None:
             raise ValueError("查询关键字不能为空")
         keyword = str(keyword).strip()
@@ -118,6 +149,7 @@ class DeviceManager:
         return results
 
     def print_table(self, records):
+        # 以表格形式输出查询结果，便于控制台查看设备信息
         if not records:
             print("无记录")
             return
@@ -141,6 +173,7 @@ class DeviceManager:
 
 
 def build_parser():
+    # 使用 argparse 构建命令行参数解析器，负责 list/add/delete/update/query 等子命令
     parser = argparse.ArgumentParser(description="局域网设备管理系统（命令行版）")
     subparsers = parser.add_subparsers(dest="command", required=False)
 
@@ -209,6 +242,7 @@ def build_parser():
 
 
 def main():
+    # 程序入口：解析命令并执行对应逻辑
     parser = build_parser()
     args = parser.parse_args()
     if not hasattr(args, "func"):
