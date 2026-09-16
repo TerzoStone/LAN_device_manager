@@ -11,8 +11,8 @@ import java.util.Map;
 
 // Java 图形界面主类：读取 CSV 文件中的设备数据，并用手工绘图方式展示原始表格和统计图
 public class LanDeviceViewer extends JFrame {
-    // 保存从 CSV 中解析出的设备数据记录
-    private final List<DeviceRecord> records;
+    // 保存从 CSV 中解析出的设备数据记录（使用面向对象的 Device 类）
+    private final List<Device> records;
 
     public LanDeviceViewer() {
         super("局域网设备管理系统 - 数据可视化");
@@ -26,9 +26,9 @@ public class LanDeviceViewer extends JFrame {
         setContentPane(new DevicePanel(records));
     }
 
-    // 读取 CSV 文件并将每一行转换为 DeviceRecord 对象
-    private static List<DeviceRecord> readRecords(File dataFile) {
-        List<DeviceRecord> list = new ArrayList<>();
+    // 读取 CSV 文件并将每一行转换为 Device 对象
+    private static List<Device> readRecords(File dataFile) {
+        List<Device> list = new ArrayList<>();
         if (!dataFile.exists()) {
             return list;
         }
@@ -48,17 +48,8 @@ public class LanDeviceViewer extends JFrame {
                 if (values.size() < 9) {
                     continue;
                 }
-                DeviceRecord record = new DeviceRecord();
-                record.deviceId = values.get(0).trim();
-                record.name = values.get(1).trim();
-                record.deviceType = values.get(2).trim();
-                record.ip = values.get(3).trim();
-                record.mac = values.get(4).trim();
-                record.location = values.get(5).trim();
-                record.status = values.get(6).trim();
-                record.owner = values.get(7).trim();
-                record.purchaseDate = values.get(8).trim();
-                list.add(record);
+                Device device = Device.fromCsv(values);
+                list.add(device);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -92,25 +83,116 @@ public class LanDeviceViewer extends JFrame {
         return result;
     }
 
-    // 单条设备数据对象，字段与 CSV 表头一一对应
-    private static class DeviceRecord {
-        String deviceId;
-        String name;
-        String deviceType;
-        String ip;
-        String mac;
-        String location;
-        String status;
-        String owner;
-        String purchaseDate;
+    // 设备类：将 CSV 的记录表示成一个面向对象的实体，包含属性和常用行为
+    private static class Device {
+        private String deviceId;
+        private String name;
+        private String deviceType;
+        private String ip;
+        private String mac;
+        private String location;
+        private String status;
+        private String owner;
+        private String purchaseDate;
+
+        // 无参构造器（用于手动构造）
+        Device() {}
+
+        // 全参构造器
+        Device(String deviceId, String name, String deviceType, String ip, String mac, String location, String status, String owner, String purchaseDate) {
+            this.deviceId = deviceId;
+            this.name = name;
+            this.deviceType = deviceType;
+            this.ip = ip;
+            this.mac = mac;
+            this.location = location;
+            this.status = status;
+            this.owner = owner;
+            this.purchaseDate = purchaseDate;
+        }
+
+        // 从 CSV 字段列表创建 Device 实例（工厂方法）
+        static Device fromCsv(List<String> values) {
+            Device d = new Device();
+            d.deviceId = values.get(0).trim();
+            d.name = values.get(1).trim();
+            d.deviceType = values.get(2).trim();
+            d.ip = values.get(3).trim();
+            d.mac = values.get(4).trim();
+            d.location = values.get(5).trim();
+            d.status = values.get(6).trim();
+            d.owner = values.get(7).trim();
+            d.purchaseDate = values.get(8).trim();
+            return d;
+        }
+
+        // 将对象序列化为 CSV 行（如果需要写回文件）
+        String toCsvLine() {
+            // 简单拼接，不处理复杂转义（数据中已假定不含换行）
+            return String.join(",",
+                    escape(deviceId), escape(name), escape(deviceType), escape(ip), escape(mac), escape(location), escape(status), escape(owner), escape(purchaseDate)
+            );
+        }
+
+        private String escape(String s) {
+            if (s == null) return "";
+            if (s.contains(",") || s.contains("\"") || s.contains("\n")) {
+                return "\"" + s.replace("\"", "\"\"") + "\"";
+            }
+            return s;
+        }
+
+        // 示例行为：判断是否在线
+        boolean isOnline() {
+            return "在线".equalsIgnoreCase(status);
+        }
+
+        // 简单的字段匹配方法，用于查询
+        boolean matchesKeyword(String keyword) {
+            if (keyword == null || keyword.isEmpty()) return false;
+            String k = keyword.toLowerCase();
+            return contains(deviceId, k) || contains(name, k) || contains(deviceType, k) || contains(ip, k) || contains(mac, k) || contains(location, k) || contains(status, k) || contains(owner, k) || contains(purchaseDate, k);
+        }
+
+        boolean matchesField(String field, String keyword) {
+            if (field == null || keyword == null) return false;
+            String k = keyword.toLowerCase();
+            switch (field) {
+                case "device_id": return contains(deviceId, k);
+                case "name": return contains(name, k);
+                case "device_type": return contains(deviceType, k);
+                case "ip": return contains(ip, k);
+                case "mac": return contains(mac, k);
+                case "location": return contains(location, k);
+                case "status": return contains(status, k);
+                case "owner": return contains(owner, k);
+                case "purchase_date": return contains(purchaseDate, k);
+                default: return false;
+            }
+        }
+
+        private boolean contains(String fieldValue, String keywordLower) {
+            return fieldValue != null && fieldValue.toLowerCase().contains(keywordLower);
+        }
+
+        // 访问器（Getter）示例
+        String getDeviceId() { return deviceId; }
+        String getName() { return name; }
+        String getDeviceType() { return deviceType; }
+        String getIp() { return ip; }
+        String getMac() { return mac; }
+        String getLocation() { return location; }
+        String getStatus() { return status; }
+        String getOwner() { return owner; }
+        String getPurchaseDate() { return purchaseDate; }
     }
 
     // 自定义绘图面板：利用 Graphics2D 直接绘制表格和统计图
     private static class DevicePanel extends JPanel {
-        private final List<DeviceRecord> records;
+        private final List<Device> records;
         private final Color[] palette = {new Color(72, 128, 255), new Color(94, 196, 110), new Color(255, 174, 66), new Color(255, 110, 110), new Color(157, 122, 255)};
 
-        DevicePanel(List<DeviceRecord> records) {
+        DevicePanel(List<Device> records) {
             this.records = records;
             setBackground(Color.WHITE);
         }
@@ -148,14 +230,14 @@ public class LanDeviceViewer extends JFrame {
             int startY = y + rowHeight;
             g2.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
             for (int rowIndex = 0; rowIndex < records.size() && rowIndex < 12; rowIndex++) {
-                DeviceRecord record = records.get(rowIndex);
+                Device record = records.get(rowIndex);
                 String[] rowData = {
-                        record.deviceId,
-                        record.name,
-                        record.deviceType,
-                        record.ip,
-                        record.status,
-                        record.location,
+                        record.getDeviceId(),
+                        record.getName(),
+                        record.getDeviceType(),
+                        record.getIp(),
+                        record.getStatus(),
+                        record.getLocation(),
                 };
                 for (int col = 0; col < rowData.length; col++) {
                     int cellX = x + col * colWidth;
@@ -171,8 +253,8 @@ public class LanDeviceViewer extends JFrame {
             counts.put("在线", 0);
             counts.put("离线", 0);
             counts.put("维护中", 0);
-            for (DeviceRecord record : records) {
-                String status = record.status;
+            for (Device record : records) {
+                String status = record.getStatus();
                 counts.put(status, counts.getOrDefault(status, 0) + 1);
             }
 
@@ -207,8 +289,8 @@ public class LanDeviceViewer extends JFrame {
         // 统计并绘制设备类型分布饼图，展示不同设备类型的占比
         private void drawTypeChart(Graphics2D g2, int x, int y, int width, int height) {
             Map<String, Integer> counts = new LinkedHashMap<>();
-            for (DeviceRecord record : records) {
-                counts.put(record.deviceType, counts.getOrDefault(record.deviceType, 0) + 1);
+            for (Device record : records) {
+                counts.put(record.getDeviceType(), counts.getOrDefault(record.getDeviceType(), 0) + 1);
             }
 
             g2.setColor(Color.BLACK);
@@ -263,4 +345,4 @@ public class LanDeviceViewer extends JFrame {
             viewer.setVisible(true);
         });
     }
-}
+}]}]}] }]}]}]
