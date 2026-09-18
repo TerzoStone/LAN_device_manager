@@ -1,135 +1,113 @@
 # 局域网设备管理系统
 
-本项目分为两部分：
+这是一个面向课程设计的局域网设备管理系统，包含三种语言实现：
 
-1. Python 命令行版：实现设备记录管理，数据以 CSV 文件保存，支持添加、删除、修改、查询和显示。
-2. Java 图形界面版：读取同一份 CSV 文件，并使用 AWT/Swing 自行绘制表格和统计图表展示数据。
+- Python 命令行版：使用 CSV 文件作为“数据库”，实现设备的增删改查与显示
+- Java GUI 版：读取同一份 CSV 数据，以手绘表格和统计图展示设备信息
+- C 语言版：与 Python 实现功能一致，适合课程中的 C 语言数据库管理系统设计
 
-## 1. 项目结构
+## 项目结构
 
-- `data/lan_devices.csv`：设备数据文件，实际保存的“数据库”。
-- `python/lan_device_manager.py`：Python 命令行管理程序。
-- `java/src/LanDeviceViewer.java`：Java 可视化界面程序。
-- `run_menu.bat`、`run_menu.ps1`：Windows 下用于双击启动交互式菜单的脚本。
-- `README.md`：项目说明。
+- `data/lan_devices.csv`：共享数据文件，实际保存设备记录
+- `python/lan_device_manager.py`：Python 版本主程序
+- `java/src/LanDeviceViewer.java`：Java 图形界面程序
+- `c/lan_device_manager.c`：C 语言版本
+- `run_menu.bat`：Windows 双击启动 Python 菜单
+- `run_menu.ps1`：PowerShell 启动脚本
+- `run_java.bat`：Windows 双击启动 Java GUI
+- `run_c.bat`：Windows 双击启动 C 版本
 
-## 2. Python 部分：设备管理系统
+## 功能概述
 
-### 2.1 功能说明
+### Python / C 版
+- 设备新增
+- 设备删除
+- 设备修改
+- 设备查询
+- 设备列表展示
+- IP 冲突检测
+- MAC 格式校验与冲突检测
+- 文件持久化保存到 CSV
 
-- 添加设备记录
-- 删除设备记录
-- 修改设备信息
-- 按关键字查询
-- 显示所有设备信息
-- 数据保存到 CSV 文件，默认路径为 `data/lan_devices.csv`
+### Java 版
+- 读取共享 CSV 文件
+- 以手工绘制的方式展示设备表格（不使用组件表格）
+- 绘制折线图、柱状图和饼状图等统计示意图
+- 支持新增、删除、修改、查询等设备操作
+- 数据保存回 CSV 文件
 
-### 2.2 命令行运行方式（子命令模式）
+## 运行方式
 
-在项目根目录执行：
+### Python
 
+方式 1：双击启动
+- `run_menu.bat`
+
+方式 2：命令行
 ```bash
-python python/lan_device_manager.py --help
+python python/lan_device_manager.py
 ```
 
-常用示例：
+### Java
 
-```bash
-python python/lan_device_manager.py list
-python python/lan_device_manager.py add --id D009 --name "防火墙F1" --type "Firewall" --ip "192.168.7.1" --mac "00-11-22-33-44-DD" --location "机房C" --status "在线" --owner "安全组" --date 2024-06-11
-python python/lan_device_manager.py update --id D009 --status "维护中" --location "机房D"
-python python/lan_device_manager.py query --keyword "交换机"
-python python/lan_device_manager.py delete --id D009
-```
-
-### 2.3 Windows：双击启动（交互式菜单）
-
-为方便课程演示或不熟悉命令行的用户，仓库提供两个 Windows 启动脚本，支持双击运行进入交互式菜单：
-
-- `run_menu.bat` —— 在 Windows CMD 中运行，自动将控制台切换为 UTF-8（chcp 65001），运行后会在命令行中显示菜单，脚本最后会 `pause`，便于查看输出。
-- `run_menu.ps1` —— PowerShell 启动脚本，将 PowerShell 控制台输出编码设置为 UTF-8 并调用 Python 脚本；脚本结束后会等待回车。
-
-使用方法：
-
-1. 确保系统安装了 Python 并且 `python` 可执行程序在 PATH 中（在命令行运行 `python --version` 验证）。
-   - 如果系统使用 `python3` 作为可执行名，请编辑 `run_menu.bat` / `run_menu.ps1` 将 `python` 替换为 `python3` 或指定你系统中的 Python 路径。
-2. 在资源管理器中双击 `run_menu.bat`（或右键 -> 用 PowerShell 运行 `run_menu.ps1`）。
-3. 出现菜单后按提示输入编号进行操作；选择 `0` 将退出程序。
-
-注意事项：
-
-- PowerShell 执行策略可能阻止脚本运行，如遇到提示可在管理员或当前用户作用域执行：
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-
-或用临时策略运行：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\run_menu.ps1
-```
-
-- 脚本假设仓库结构保持不变（`python\lan_device_manager.py`）。如移动文件，请相应修改脚本中的路径。
-- 若希望脚本自动激活虚拟环境（venv）或使用指定 Python 解释器路径，可将路径写入脚本或告知我由我代为修改。
-
-### 2.4 数据结构
-
-每条设备记录包含：
-
-- device_id：设备编号
-- name：设备名称
-- device_type：设备类型
-- ip：IP 地址
-- mac：MAC 地址
-- location：安装位置
-- status：状态（在线、离线、维护中等）
-- owner：责任人
-- purchase_date：采购日期
-
-## 3. Java 部分：图形界面展示
-
-Java 程序会读取 `data/lan_devices.csv` 文件，然后在窗口中手工绘制：
-
-- 设备原始数据表格
-- 设备状态分布柱状图
-- 设备类型分布饼图
-
-程序中没有使用任何现成表格组件，也没有使用预制图表组件，全部使用 `Graphics` / `Graphics2D` 的 `drawString`、`drawRect`、`fillRect`、`fillArc` 等方法手工绘制。
-
-### 3.1 运行方式
-
-在项目根目录执行：
+先安装 JDK 21，然后运行：
 
 ```bash
 javac -d out java/src/LanDeviceViewer.java
 java -cp out LanDeviceViewer
 ```
 
-注意：如果当前目录不是项目根目录，请先切到根目录后再执行上述命令。
+或双击：
+- `run_java.bat`
 
-## 4. 设计思路说明
+### C
 
-- Python 负责“数据库操作”：新增、删除、修改、查询、保存。
-- CSV 文件负责“数据持久化”。
-- Java 负责“数据展示”：读取 CSV 文件并以图表形式展示设备数据。
+在 Windows 下可直接运行：
+- `run_c.bat`
 
-这样设计符合“管理信息系统”的基本结构：
+或使用 GCC 编译：
+```bash
+gcc -o c/lan_device_manager c/lan_device_manager.c
+c/lan_device_manager.exe
+```
 
-- 数据存储：CSV 文件
-- 数据管理：Python 端 CRUD
-- 数据展示：Java 端界面可视化
+## 数据文件
 
-## 5. 适用场景
+设备数据保存在：
 
-该项目适合用于学习：
+- `data/lan_devices.csv`
 
-- 文件型数据库的基本设计
-- 记录的增删改查
-- 模块化程序设计
-- Java 图形界面绘制与数据显示
-- 数据统计图表的自定义绘制
+表头包括：
+- device_id
+- name
+- device_type
+- ip
+- mac
+- status
+- location
 
-## 6. 说明
+## 设计说明
 
-本项目以“模拟局域网设备管理系统”为主，重点体现信息管理系统的基本设计思想和工程实现方法，适合课程作业、课程设计或学习实践。
+本项目采用“共享 CSV 文件作为数据库”的思路，保证 Python、Java、C 三个版本之间使用同一份数据源，便于对比学习和课程演示。
+
+- Python/C：负责 CRUD 操作与数据存储
+- Java：负责图形展示与可视化分析
+- 统一数据：保证三部分逻辑保持一致
+
+## 运行环境
+
+- Python 3.x
+- JDK 21+
+- GCC / MinGW（可选，运行 C 版本）
+- Windows 10/11（脚本为主）
+
+## 注意事项
+
+- Windows 控制台中文输出可能受编码影响，需要使用 UTF-8 控制台或启动脚本设置编码
+- Java GUI 使用 `Graphics2D` 手工绘制，不依赖组件表格或现成图表控件，符合课程要求
+
+## 版权与说明
+
+该项目仅用于课程学习与演示，欢迎在遵循开源要求的前提下进行二次开发与学习。
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
